@@ -33,7 +33,6 @@
 
       <div id="room-link-box" class="room-link-box hidden">
         <p>Отправьте эту ссылку другу:</p>
-        <p id="local-warn" class="local-warn hidden">⚠️ Сначала задеплойте сайт на Render (кнопка Apply), иначе друг увидит Not Found</p>
         <div class="link-row">
           <input type="text" id="room-link" readonly>
           <button id="copy-btn" class="btn-icon" title="Копировать">
@@ -51,6 +50,7 @@
       <div id="waiting" class="waiting-overlay">
         <div class="pulse-ring"></div>
         <p>Ожидание друга...</p>
+        <p class="waiting-hint">Сейчас вы видите себя. Когда друг подключится — его видео появится на весь экран.</p>
         <p class="room-code" id="display-room"></p>
       </div>
       <div id="remote-pip" class="pip hidden">

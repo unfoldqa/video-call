@@ -203,6 +203,15 @@ input[type="text"]::placeholder {
   height: 100%;
   object-fit: cover;
   background: #111;
+  transform: scaleX(-1);
+}
+
+.video-container.connected #remote-video {
+  transform: none;
+}
+
+.video-container:not(.connected) #remote-video {
+  filter: brightness(0.85);
 }
 
 #remote-video.screen-mode {
@@ -310,6 +319,13 @@ input[type="text"]::placeholder {
 .waiting-overlay p {
   font-size: 1.1rem;
   color: var(--text-secondary);
+}
+
+.waiting-hint {
+  font-size: 0.85rem !important;
+  max-width: 280px;
+  text-align: center;
+  line-height: 1.4;
 }
 
 .room-code {

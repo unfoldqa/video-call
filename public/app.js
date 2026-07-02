@@ -65,6 +65,11 @@ let remoteScreenSharing = false;
 let isDrawing = false;
 let drawEnabled = true;
 let remoteStream = null;
+let remoteConnected = false;
+let pendingCandidates = [];
+let lastDrawPoint = null;
+let makingOffer = false;
+let ignoreOffer = false;
 
 function generateRoomId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -121,6 +126,23 @@ function setScreenSharingState(sharing, fromRemote = false) {
   updateScreenUI();
 }
 
+function updateVideoLayout() {
+  if (remoteConnected && remoteStream && !isScreenSharing) {
+    remoteVideo.srcObject = remoteStream;
+    remoteVideo.classList.remove('hidden');
+    localVideo.srcObject = cameraStream;
+    remotePip.classList.remove('hidden');
+    waiting.classList.add('hidden');
+    videoContainer.classList.add('connected');
+  } else if (!remoteConnected && cameraStream && !isScreenSharing) {
+    remoteVideo.srcObject = cameraStream;
+    remoteVideo.classList.remove('hidden');
+    remotePip.classList.add('hidden');
+    waiting.classList.remove('hidden');
+    videoContainer.classList.remove('connected');
+  }
+}
+
 async function getMedia() {
   const constraints = {
     audio: true,
@@ -130,6 +152,7 @@ async function getMedia() {
   localStream = cameraStream;
   cameraVideoTrack = cameraStream.getVideoTracks()[0];
   localVideo.srcObject = cameraStream;
+  updateVideoLayout();
 }
 
 function getVideoSender() {
@@ -152,6 +175,8 @@ async function startScreenShare() {
 
     await replaceVideoTrack(screenTrack);
     remoteVideo.srcObject = screenStream;
+    remoteVideo.classList.remove('hidden');
+    waiting.classList.add('hidden');
     setScreenSharingState(true);
     sendSignal({ type: 'screen-share', active: true });
     callStatus.textContent = 'Демонстрация экрана';
@@ -169,12 +194,10 @@ async function stopScreenShare() {
   if (cameraVideoTrack) {
     await replaceVideoTrack(cameraVideoTrack);
   }
-  if (remoteStream) {
-    remoteVideo.srcObject = remoteStream;
-  }
   setScreenSharingState(false);
   sendSignal({ type: 'screen-share', active: false });
-  callStatus.textContent = 'На связи';
+  updateVideoLayout();
+  callStatus.textContent = remoteConnected ? 'На связи' : 'Ожидание друга...';
 }
 
 function drawStroke(from, to, color, width, local = true) {
@@ -194,13 +217,7 @@ function drawStroke(from, to, color, width, local = true) {
   drawCtx.stroke();
 
   if (local) {
-    sendSignal({
-      type: 'draw',
-      from,
-      to,
-      color,
-      width,
-    });
+    sendSignal({ type: 'draw', from, to, color, width });
   }
 }
 
@@ -212,6 +229,30 @@ function getNormPoint(e) {
     x: (clientX - rect.left) / rect.width,
     y: (clientY - rect.top) / rect.height,
   };
+}
+
+async function flushCandidates() {
+  const candidates = pendingCandidates.splice(0);
+  for (const candidate of candidates) {
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (err) {
+      console.warn('ICE candidate error:', err);
+    }
+  }
+}
+
+async function addRemoteCandidate(candidate) {
+  if (!pc || !candidate) return;
+  if (!pc.remoteDescription) {
+    pendingCandidates.push(candidate);
+    return;
+  }
+  try {
+    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+  } catch (err) {
+    console.warn('ICE candidate error:', err);
+  }
 }
 
 function connectSignaling() {
@@ -231,40 +272,33 @@ function connectSignaling() {
         if (msg.peers === 0) {
           isInitiator = true;
           callStatus.textContent = 'Ожидание друга...';
+          updateVideoLayout();
         } else {
           isInitiator = false;
           callStatus.textContent = 'Подключение...';
           await createPeerConnection();
-          await createOffer();
+          // Ждём offer от инициатора — не создаём свой
         }
         break;
 
       case 'peer-joined':
-        callStatus.textContent = 'Друг подключился';
-        waiting.classList.add('hidden');
-        remotePip.classList.remove('hidden');
+        callStatus.textContent = 'Друг подключился...';
         if (isInitiator) {
           await createPeerConnection();
-          await createOffer();
+          await sendOffer();
         }
         break;
 
       case 'offer':
-        if (!pc) await createPeerConnection();
-        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        sendSignal({ type: 'answer', sdp: pc.localDescription });
+        await handleOffer(msg.sdp);
         break;
 
       case 'answer':
-        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+        await handleAnswer(msg.sdp);
         break;
 
       case 'ice-candidate':
-        if (msg.candidate && pc) {
-          await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-        }
+        await addRemoteCandidate(msg.candidate);
         break;
 
       case 'screen-share':
@@ -281,17 +315,18 @@ function connectSignaling() {
         break;
 
       case 'peer-left':
+        remoteConnected = false;
+        remoteStream = null;
         callStatus.textContent = 'Друг отключился';
-        waiting.classList.remove('hidden');
-        remotePip.classList.add('hidden');
-        remoteVideo.srcObject = null;
         remoteScreenSharing = false;
         if (isScreenSharing) await stopScreenShare();
         updateScreenUI();
+        updateVideoLayout();
         if (pc) {
           pc.close();
           pc = null;
         }
+        pendingCandidates = [];
         isInitiator = true;
         break;
     }
@@ -303,7 +338,11 @@ function connectSignaling() {
 }
 
 async function createPeerConnection() {
-  if (pc) pc.close();
+  if (pc) {
+    pc.close();
+    pc = null;
+  }
+  pendingCandidates = [];
 
   pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
@@ -313,11 +352,14 @@ async function createPeerConnection() {
 
   pc.ontrack = (event) => {
     remoteStream = event.streams[0];
+    remoteConnected = true;
     if (!isScreenSharing) {
       remoteVideo.srcObject = remoteStream;
     }
     waiting.classList.add('hidden');
     remotePip.classList.remove('hidden');
+    localVideo.srcObject = cameraStream;
+    videoContainer.classList.add('connected');
     callStatus.textContent = remoteScreenSharing ? 'Друг демонстрирует экран' : 'На связи';
   };
 
@@ -328,18 +370,48 @@ async function createPeerConnection() {
   };
 
   pc.onconnectionstatechange = () => {
+    if (!pc) return;
     if (pc.connectionState === 'connected') {
       callStatus.textContent = remoteScreenSharing ? 'Друг демонстрирует экран' : 'На связи';
     } else if (pc.connectionState === 'failed') {
-      callStatus.textContent = 'Ошибка соединения';
+      callStatus.textContent = 'Ошибка соединения — попробуйте переподключиться';
+    } else if (pc.connectionState === 'disconnected') {
+      callStatus.textContent = 'Соединение прервано...';
     }
   };
 }
 
-async function createOffer() {
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  sendSignal({ type: 'offer', sdp: pc.localDescription });
+async function sendOffer() {
+  if (!pc || makingOffer) return;
+  makingOffer = true;
+  try {
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    sendSignal({ type: 'offer', sdp: pc.localDescription });
+  } finally {
+    makingOffer = false;
+  }
+}
+
+async function handleOffer(sdp) {
+  if (!pc) await createPeerConnection();
+
+  const offerCollision = makingOffer || (pc.signalingState !== 'stable' && !isInitiator);
+  ignoreOffer = !isInitiator && offerCollision;
+  if (ignoreOffer) return;
+
+  await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+  await flushCandidates();
+
+  const answer = await pc.createAnswer();
+  await pc.setLocalDescription(answer);
+  sendSignal({ type: 'answer', sdp: pc.localDescription });
+}
+
+async function handleAnswer(sdp) {
+  if (!pc) return;
+  await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+  await flushCandidates();
 }
 
 async function startCall(id) {
@@ -376,17 +448,20 @@ async function hangUp() {
   localVideo.srcObject = null;
   remoteVideo.srcObject = null;
   remoteStream = null;
+  remoteConnected = false;
   remoteScreenSharing = false;
+  pendingCandidates = [];
+  makingOffer = false;
   waiting.classList.remove('hidden');
   remotePip.classList.add('hidden');
   drawToolbar.classList.add('hidden');
   screenBadge.classList.add('hidden');
+  videoContainer.classList.remove('connected');
   window.removeEventListener('resize', resizeCanvas);
   showScreen(lobby);
   history.replaceState(null, '', '/');
 }
 
-// Drawing events
 function onDrawStart(e) {
   if (!drawEnabled || !(isScreenSharing || remoteScreenSharing)) return;
   e.preventDefault();
@@ -398,9 +473,7 @@ function onDrawMove(e) {
   if (!isDrawing || !lastDrawPoint) return;
   e.preventDefault();
   const point = getNormPoint(e);
-  const color = drawColor.value;
-  const width = Number(drawSize.value);
-  drawStroke(lastDrawPoint, point, color, width);
+  drawStroke(lastDrawPoint, point, drawColor.value, Number(drawSize.value));
   lastDrawPoint = point;
 }
 
@@ -443,9 +516,6 @@ joinBtn.addEventListener('click', () => {
 });
 
 function getPublicOrigin() {
-  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    return 'https://video-call.onrender.com';
-  }
   return location.origin;
 }
 
@@ -454,10 +524,6 @@ createBtn.addEventListener('click', () => {
   roomInput.value = id;
   roomLink.value = `${getPublicOrigin()}?room=${id}`;
   roomLinkBox.classList.remove('hidden');
-  const warn = document.getElementById('local-warn');
-  if (warn && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-    warn.classList.remove('hidden');
-  }
 });
 
 copyBtn.addEventListener('click', () => {
@@ -472,6 +538,7 @@ roomInput.addEventListener('keydown', (e) => {
 });
 
 toggleMic.addEventListener('click', () => {
+  if (!localStream) return;
   micEnabled = !micEnabled;
   localStream.getAudioTracks().forEach((t) => { t.enabled = micEnabled; });
   toggleMic.classList.toggle('muted', !micEnabled);
@@ -503,6 +570,7 @@ flipCam.addEventListener('click', async () => {
   cameraStream.addTrack(newTrack);
   cameraVideoTrack = newTrack;
   localVideo.srcObject = cameraStream;
+  if (!remoteConnected) updateVideoLayout();
 });
 
 endCall.addEventListener('click', hangUp);
