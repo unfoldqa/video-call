@@ -148,6 +148,11 @@ input[type="text"]::placeholder {
   margin-bottom: 0.6rem;
 }
 
+.local-warn {
+  color: #ff9f0a !important;
+  font-size: 0.8rem !important;
+}
+
 .link-row {
   display: flex;
   gap: 0.5rem;

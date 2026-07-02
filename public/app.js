@@ -445,8 +445,15 @@ joinBtn.addEventListener('click', () => {
 createBtn.addEventListener('click', () => {
   const id = generateRoomId();
   roomInput.value = id;
-  roomLink.value = `${location.origin}?room=${id}`;
+  const origin = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+    ? 'https://video-call.onrender.com'
+    : location.origin;
+  roomLink.value = `${origin}?room=${id}`;
   roomLinkBox.classList.remove('hidden');
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    const warn = document.getElementById('local-warn');
+    if (warn) warn.classList.remove('hidden');
+  }
 });
 
 copyBtn.addEventListener('click', () => {
