@@ -375,6 +375,7 @@ async function hangUp() {
   cameraVideoTrack = null;
   localVideo.srcObject = null;
   remoteVideo.srcObject = null;
+  remoteStream = null;
   remoteScreenSharing = false;
   waiting.classList.remove('hidden');
   remotePip.classList.add('hidden');
