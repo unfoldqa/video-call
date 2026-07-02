@@ -21,10 +21,13 @@ python3 server.py
 
 ## Деплой на Render (бесплатно)
 
-1. Загрузите репозиторий на GitHub
-2. Зайдите на [render.com](https://render.com) → New → Blueprint
-3. Подключите репозиторий — Render подхватит `render.yaml`
-4. После деплоя откройте URL вида `https://video-call-xxxx.onrender.com`
+**Репозиторий:** https://github.com/unfoldqa/video-call
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/unfoldqa/video-call)
+
+1. Нажмите кнопку выше (или откройте [Render Blueprint](https://dashboard.render.com/blueprint/new?repo=https%3A%2F%2Fgithub.com%2Funfoldqa%2Fvideo-call))
+2. Нажмите **Apply** — Render задеплоит приложение автоматически
+3. Через 2–3 минуты откройте URL вида `https://video-call-xxxx.onrender.com`
 
 ## Как пользоваться
 

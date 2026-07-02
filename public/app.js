@@ -64,7 +64,7 @@ let isScreenSharing = false;
 let remoteScreenSharing = false;
 let isDrawing = false;
 let drawEnabled = true;
-let lastDrawPoint = null;
+let remoteStream = null;
 
 function generateRoomId() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -168,6 +168,9 @@ async function stopScreenShare() {
   }
   if (cameraVideoTrack) {
     await replaceVideoTrack(cameraVideoTrack);
+  }
+  if (remoteStream) {
+    remoteVideo.srcObject = remoteStream;
   }
   setScreenSharingState(false);
   sendSignal({ type: 'screen-share', active: false });
@@ -309,8 +312,9 @@ async function createPeerConnection() {
   });
 
   pc.ontrack = (event) => {
+    remoteStream = event.streams[0];
     if (!isScreenSharing) {
-      remoteVideo.srcObject = event.streams[0];
+      remoteVideo.srcObject = remoteStream;
     }
     waiting.classList.add('hidden');
     remotePip.classList.remove('hidden');
