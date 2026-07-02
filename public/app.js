@@ -442,17 +442,21 @@ joinBtn.addEventListener('click', () => {
   startCall(id);
 });
 
+function getPublicOrigin() {
+  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+    return 'https://video-call.onrender.com';
+  }
+  return location.origin;
+}
+
 createBtn.addEventListener('click', () => {
   const id = generateRoomId();
   roomInput.value = id;
-  const origin = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-    ? 'https://video-call.onrender.com'
-    : location.origin;
-  roomLink.value = `${origin}?room=${id}`;
+  roomLink.value = `${getPublicOrigin()}?room=${id}`;
   roomLinkBox.classList.remove('hidden');
-  if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
-    const warn = document.getElementById('local-warn');
-    if (warn) warn.classList.remove('hidden');
+  const warn = document.getElementById('local-warn');
+  if (warn && (location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    warn.classList.remove('hidden');
   }
 });
 
