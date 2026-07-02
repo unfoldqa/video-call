@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Видеозвонок</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📹</text></svg>">
+</head>
+<body>
+  <div id="lobby" class="screen active">
+    <div class="lobby-content">
+      <div class="logo">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="48" height="48" rx="12" fill="url(#grad)"/>
+          <path d="M16 18h10v12H16V18zm14 3.5l8-5v17l-8-5v-7z" fill="white"/>
+          <defs>
+            <linearGradient id="grad" x1="0" y1="0" x2="48" y2="48">
+              <stop stop-color="#34C759"/>
+              <stop offset="1" stop-color="#30D158"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <h1>Видеозвонок</h1>
+      <p class="subtitle">Созвонитесь с другом в один клик</p>
+
+      <div class="lobby-form">
+        <input type="text" id="room-input" placeholder="Код комнаты" maxlength="20" autocomplete="off">
+        <button id="join-btn" class="btn-primary">Присоединиться</button>
+        <button id="create-btn" class="btn-secondary">Создать новую комнату</button>
+      </div>
+
+      <div id="room-link-box" class="room-link-box hidden">
+        <p>Отправьте эту ссылку другу:</p>
+        <div class="link-row">
+          <input type="text" id="room-link" readonly>
+          <button id="copy-btn" class="btn-icon" title="Копировать">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="call" class="screen">
+    <div class="video-container" id="video-container">
+      <video id="remote-video" autoplay playsinline></video>
+      <canvas id="draw-canvas"></canvas>
+      <div id="waiting" class="waiting-overlay">
+        <div class="pulse-ring"></div>
+        <p>Ожидание друга...</p>
+        <p class="room-code" id="display-room"></p>
+      </div>
+      <div id="remote-pip" class="pip hidden">
+        <video id="local-video" autoplay playsinline muted></video>
+      </div>
+      <div id="screen-badge" class="screen-badge hidden">Демонстрация экрана</div>
+    </div>
+
+    <div class="call-info">
+      <span id="call-status">Подключение...</span>
+    </div>
+
+    <div id="draw-toolbar" class="draw-toolbar hidden">
+      <button id="draw-toggle" class="toolbar-btn active" title="Рисовать">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+      </button>
+      <input type="color" id="draw-color" value="#ff3b30" title="Цвет">
+      <input type="range" id="draw-size" min="2" max="16" value="4" title="Толщина">
+      <button id="draw-clear" class="toolbar-btn" title="Очистить">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+      </button>
+    </div>
+
+    <div class="controls">
+      <button id="toggle-mic" class="control-btn" title="Микрофон">
+        <svg class="icon-on" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+        <svg class="icon-off hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M19 11h-1.7c0 .74-.16 1.43-.43 2.05l1.23 1.23c.56-.98.9-2.09.9-3.28zm-4.02.17c0-.06.02-.11.02-.17V5c0-1.66-1.34-3-3-3S9 3.34 9 5v.18l5.98 5.99zM4.27 3L3 4.27l6.01 6.01V11c0 1.66 1.33 3 2.99 3 .22 0 .44-.03.65-.08l1.66 1.66c-.71.33-1.5.52-2.31.52-2.76 0-5.3-2.1-5.3-5.1H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c.91-.13 1.77-.45 2.54-.9L19.73 21 21 19.73 4.27 3z"/></svg>
+      </button>
+
+      <button id="share-screen" class="control-btn" title="Демонстрация экрана">
+        <svg class="icon-on" viewBox="0 0 24 24" fill="currentColor"><path d="M20 18c1.1 0 1.99-.9 1.99-2L22 6c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2H0v2h24v-2h-4zM4 6h16v10H4V6z"/></svg>
+        <svg class="icon-off hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.97 4.7a1 1 0 01-1 0l-7.97-4.7A.996.996 0 013 16.5V7c0-.38.21-.71.53-.88l7.97-4.7a1 1 0 011 0l7.97 4.7c.32.17.53.5.53.88v9.5z"/></svg>
+      </button>
+
+      <button id="end-call" class="control-btn end-call" title="Завершить">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 5.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/></svg>
+      </button>
+
+      <button id="toggle-cam" class="control-btn" title="Камера">
+        <svg class="icon-on" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H5c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h11c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+        <svg class="icon-off hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M21 6.5l-4 4V7c0-.55-.45-1-1-1H9.82L21 17.18V6.5zM3.27 2L2 3.27 4.73 6H5c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h11c.21 0 .39-.08.54-.18L19.73 21 21 19.73 3.27 2z"/></svg>
+      </button>
+
+      <button id="flip-cam" class="control-btn" title="Переключить камеру">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 12c0 1.66 1.34 3 3 3s3-1.34 3-3-1.34-3-3-3-3 1.34-3 3zm12-3h-1.7c0-.74-.16-1.43-.43-2.05l1.23-1.23-1.41-1.41-1.23 1.23C16.74 4.09 14.49 3 12 3 7.03 3 3 7.03 3 12s4.03 9 9 9 9-4.03 9-9h-1.7c0 4.03-3.28 7.3-7.3 7.3S4.7 16.03 4.7 12 7.98 4.7 12 4.7c1.19 0 2.31.29 3.3.8l-1.23 1.23 1.41 1.41 1.23-1.23c.62.27 1.31.43 2.05.43V9z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

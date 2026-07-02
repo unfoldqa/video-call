@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: video-call
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python server.py
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 10000
